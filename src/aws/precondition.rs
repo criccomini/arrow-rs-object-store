@@ -135,6 +135,9 @@ pub enum S3ConditionalPut {
     /// exists.
     ///
     /// Encoded as `header:<HEADER_NAME>:<HEADER_VALUE>` ignoring whitespace
+    ///
+    /// [`ObjectStore::put_opts`]: crate::ObjectStore::put_opts
+    /// [`PutMode::Create`]: crate::PutMode::Create
     Header(String, String),
 
     /// The same as [`S3ConditionalPut::Header`] but allows custom status code
