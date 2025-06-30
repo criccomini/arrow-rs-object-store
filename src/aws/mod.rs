@@ -195,6 +195,26 @@ impl ObjectStore for AmazonS3 {
                     r => r,
                 }
             }
+            (PutMode::Create, S3ConditionalPut::Header(k, v)) => {
+                match request.header(k, v).do_put().await {
+                    Err(RequestError::Retry { source, path })
+                        if source.status() == Some(StatusCode::PRECONDITION_FAILED) =>
+                    {
+                        Err(Error::AlreadyExists { path, source: Box::new(source) })
+                    }
+                    Err(e) => Err(e.into()),
+                    Ok(r) => Ok(r),
+                }
+            }
+            (PutMode::Create, S3ConditionalPut::HeaderWithStatus(k, v, status)) => {
+                match request.header(k, v).do_put().await {
+                    Err(RequestError::Retry { source, path }) if source.status() == Some(*status) => {
+                        Err(Error::AlreadyExists { path, source: Box::new(source) })
+                    }
+                    Err(e) => Err(e.into()),
+                    Ok(r) => Ok(r),
+                }
+            }
             (PutMode::Update(v), put) => {
                 let etag = v.e_tag.ok_or_else(|| Error::Generic {
                     store: STORE,
