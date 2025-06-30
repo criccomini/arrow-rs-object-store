@@ -197,30 +197,20 @@ impl ObjectStore for AmazonS3 {
             }
             (PutMode::Create, S3ConditionalPut::Header(k, v)) => {
                 match request.header(k, v).do_put().await {
-                    Err(RequestError::Retry { source, path })
-                        if source.status() == Some(StatusCode::PRECONDITION_FAILED) =>
-                    {
-                        Err(Error::AlreadyExists {
-                            path,
-                            source: Box::new(source),
-                        })
-                    }
-                    Err(e) => Err(e.into()),
-                    Ok(r) => Ok(r),
+                    Err(e @ Error::Precondition { .. }) => Err(Error::AlreadyExists {
+                        path: location.to_string(),
+                        source: Box::new(e),
+                    }),
+                    r => r,
                 }
             }
             (PutMode::Create, S3ConditionalPut::HeaderWithStatus(k, v, status)) => {
                 match request.header(k, v).do_put().await {
-                    Err(RequestError::Retry { source, path })
-                        if source.status() == Some(*status) =>
-                    {
-                        Err(Error::AlreadyExists {
-                            path,
-                            source: Box::new(source),
-                        })
-                    }
-                    Err(e) => Err(e.into()),
-                    Ok(r) => Ok(r),
+                    Err(e) if e.status() == Some(*status) => Err(Error::AlreadyExists {
+                        path: location.to_string(),
+                        source: Box::new(e),
+                    }),
+                    r => r,
                 }
             }
             (PutMode::Update(v), put) => {
